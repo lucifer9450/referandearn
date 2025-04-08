@@ -4,9 +4,9 @@ services:
   web:
     build: .
     ports:
-      - "10000:80"
+      - "80:80"
     environment:
-      - BOT_TOKEN=your_bot_token_here
+      - BOT_TOKEN=${BOT_TOKEN}
+      - RENDER_URL=${RENDER_URL}
     volumes:
-      - ./users.json:/var/www/html/users.json
-      - ./error.log:/var/www/html/error.log
+      - ./:/var/www/html

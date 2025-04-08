@@ -1,21 +1,9 @@
 <?php
 // Bot configuration
-define('BOT_TOKEN', getenv('BOT_TOKEN') ?: 'Place_Your_Token_Here');
+define('BOT_TOKEN', getenv('BOT_TOKEN'));
 define('API_URL', 'https://api.telegram.org/bot' . BOT_TOKEN . '/');
 define('USERS_FILE', 'users.json');
 define('ERROR_LOG', 'error.log');
-
-// Initialize webhook
-function setWebhook($url) {
-    try {
-        $result = file_get_contents(API_URL . 'setWebhook?url=' . urlencode($url));
-        logError("Webhook set: " . $result);
-        return true;
-    } catch (Exception $e) {
-        logError("Webhook setup failed: " . $e->getMessage());
-        return false;
-    }
-}
 
 // Error logging
 function logError($message) {
@@ -84,8 +72,9 @@ function processUpdate($update) {
     $users = loadUsers();
     
     if (isset($update['message'])) {
-        $chat_id = $update['message']['chat']['id'];
-        $text = trim($update['message']['text'] ?? '');
+        $message = $update['message'];
+        $chat_id = $message['chat']['id'];
+        $text = trim($message['text'] ?? '');
         
         // Create new user if doesn't exist
         if (!isset($users[$chat_id])) {
@@ -117,8 +106,9 @@ function processUpdate($update) {
         }
         
     } elseif (isset($update['callback_query'])) {
-        $chat_id = $update['callback_query']['message']['chat']['id'];
-        $data = $update['callback_query']['data'];
+        $callback = $update['callback_query'];
+        $chat_id = $callback['message']['chat']['id'];
+        $data = $callback['data'];
         
         if (!isset($users[$chat_id])) {
             $users[$chat_id] = [
@@ -187,28 +177,19 @@ function processUpdate($update) {
 }
 
 // Webhook handler
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $update = json_decode(file_get_contents('php://input'), true);
-    if ($update) {
-        processUpdate($update);
-    }
-    http_response_code(200);
-    exit;
-}
+$content = file_get_contents("php://input");
+$update = json_decode($content, true);
 
-// CLI command to set webhook
-if (php_sapi_name() === 'cli') {
-    if (isset($argv[1]) && $argv[1] === 'set-webhook') {
-        $webhook_url = 'https://your-render-app.onrender.com/';
-        echo "Setting webhook to: $webhook_url\n";
-        echo setWebhook($webhook_url) ? "Success!\n" : "Failed!\n";
-    } else {
-        echo "Usage: php index.php set-webhook\n";
+if ($update) {
+    processUpdate($update);
+} else {
+    // Webhook setup verification
+    if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+        $render_url = getenv('RENDER_URL');
+        echo "Bot is running! Set webhook using this URL:\n";
+        echo $render_url . "/webhook\n\n";
+        echo "Use this command to set webhook:\n";
+        echo "curl -X GET " . API_URL . "setWebhook?url=" . urlencode($render_url . "/webhook");
     }
-    exit;
 }
-
-// Default response for browser requests
-http_response_code(200);
-echo 'Telegram Bot is running!';
 ?>
